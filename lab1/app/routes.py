@@ -23,7 +23,6 @@ def get_book(book_id):
 @app.route('/books', methods=['POST'])
 def add_book():
     try:
-        # Видаляємо manually надісланий ID, генеруємо автоматично
         data = request.json.copy()
         data['id'] = generate_book_id()
         
@@ -37,7 +36,6 @@ def add_book():
 def delete_book(book_id):
     global books
     
-    # Перевіряємо, чи існує книга перед видаленням
     book_to_delete = next((b for b in books if b['id'] == book_id), None)
     
     if not book_to_delete:
