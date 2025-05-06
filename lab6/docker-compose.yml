@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: library-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+      - MAX_CONN_RETRIES=5
+      - RETRY_DELAY=5
+      - FLASK_APP=app.wsgi  
+      - FLASK_ENV=development
+    depends_on:
+      - mongo
+    command: python -m app.wsgi  
+
+  mongo:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
