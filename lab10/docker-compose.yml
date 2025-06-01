@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: library-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+      - DATABASE_NAME=library
+      - MAX_CONN_RETRIES=5
+      - RETRY_DELAY=5
+      - REDIS_URL=redis://redis:6379
+      - REDIS_DB=0
+      - AUTHENTICATED_LIMIT=10
+      - ANONYMOUS_LIMIT=2
+      - RATE_LIMIT_WINDOW=60
+    depends_on:
+      - mongo
+      - redis
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Locust для навантажувального тестування
+  locust:
+    build:
+      context: .
+      dockerfile: Dockerfile.locust
+    container_name: library-locust
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./locustfile.py:/locust/locustfile.py
+    depends_on:
+      - api
+    command: locust --host=http://api:8000
+
+  mongo:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mongo-data:
+  redis-data:

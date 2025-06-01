@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /locust
+
+# Встановлюємо Locust
+RUN pip install locust
+
+# Копіюємо файл з тестами
+COPY locustfile.py .
+
+# Відкриваємо порт для веб-інтерфейсу Locust
+EXPOSE 8089
+
+# Запускаємо Locust з веб-інтерфейсом
+CMD ["locust", "--host=http://api:8000", "--web-host=0.0.0.0"]
