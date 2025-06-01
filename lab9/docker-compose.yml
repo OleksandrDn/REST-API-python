@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: library-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+      - DATABASE_NAME=library
+      - MAX_CONN_RETRIES=5
+      - RETRY_DELAY=5
+      - REDIS_URL=redis://redis:6379
+      - REDIS_DB=0
+      - AUTHENTICATED_LIMIT=10
+      - ANONYMOUS_LIMIT=2
+      - RATE_LIMIT_WINDOW=60
+    depends_on:
+      - mongo
+      - redis
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Мок сервіс з використанням Prism
+  mock-api:
+    image: stoplight/prism:4
+    container_name: library-mock-api
+    ports:
+      - "4010:4010"
+    volumes:
+      - ./library-api-spec.yaml:/tmp/library-api-spec.yaml:ro
+    command: >
+      mock 
+      --host 0.0.0.0 
+      --port 4010 
+      --dynamic false
+      --cors 
+      --errors
+      /tmp/library-api-spec.yaml
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4010/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  mongo:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mongo-data:
+  redis-data:

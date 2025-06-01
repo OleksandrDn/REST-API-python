@@ -1,0 +1,576 @@
+openapi: 3.0.3
+info:
+  title: Бібліотека API
+  description: API для управління книгами в бібліотеці з аутентифікацією
+  version: 1.0.0
+  contact:
+    email: example@example.com
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+  - url: http://localhost:4010/api
+    description: Mock server
+
+tags:
+  - name: auth
+    description: Аутентифікація та авторизація
+  - name: books
+    description: Операції з книгами
+  - name: base
+    description: Базові операції
+
+paths:
+  /:
+    get:
+      tags:
+        - base
+      summary: Головна сторінка API бібліотеки
+      responses:
+        '200':
+          description: Успішна відповідь
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Головна сторінка API бібліотеки"
+              examples:
+                success:
+                  value:
+                    message: "Головна сторінка API бібліотеки"
+
+  /auth/register:
+    post:
+      tags:
+        - auth
+      summary: Реєстрація нового користувача
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+            examples:
+              user_registration:
+                value:
+                  email: "user@example.com"
+                  username: "testuser"
+                  password: "password123"
+      responses:
+        '201':
+          description: Користувач успішно створений
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: string
+                example: "10"
+              description: Ліміт запитів
+            X-RateLimit-Remaining:
+              schema:
+                type: string
+                example: "9"
+              description: Залишилось запитів
+            X-RateLimit-Reset:
+              schema:
+                type: string
+                example: "1640995200"
+              description: Час скидання лімітів
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              examples:
+                created_user:
+                  value:
+                    id: "507f1f77bcf86cd799439011"
+                    email: "user@example.com"
+                    username: "testuser"
+                    created_at: "2023-01-01T12:00:00Z"
+                    updated_at: null
+        '400':
+          description: Помилка валідації або користувач вже існує
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+              examples:
+                validation_error:
+                  value:
+                    detail: "Користувач з таким email вже існує"
+        '429':
+          description: Перевищено ліміт запитів
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+
+  /auth/login:
+    post:
+      tags:
+        - auth
+      summary: Вхід користувача через JSON
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+            examples:
+              login_request:
+                value:
+                  email: "user@example.com"
+                  password: "password123"
+      responses:
+        '200':
+          description: Успішна аутентифікація
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: string
+                example: "10"
+            X-RateLimit-Remaining:
+              schema:
+                type: string
+                example: "9"
+            X-RateLimit-Reset:
+              schema:
+                type: string
+                example: "1640995200"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+              examples:
+                successful_login:
+                  value:
+                    access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiZXhwIjoxNjQwOTk1MjAwfQ.example"
+                    refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiZXhwIjoxNjQwOTk1MjAwfQ.refresh"
+                    token_type: "bearer"
+        '401':
+          description: Невірний email або пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+              examples:
+                invalid_credentials:
+                  value:
+                    detail: "Невірний email або пароль"
+
+  /books:
+    get:
+      tags:
+        - books
+      summary: Отримати список книг з пагінацією
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: skip
+          in: query
+          description: Кількість записів для пропуску
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+        - name: limit
+          in: query
+          description: Максимальна кількість записів для отримання
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+            example: 10
+      responses:
+        '200':
+          description: Список книг отримано успішно
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: string
+                example: "10"
+            X-RateLimit-Remaining:
+              schema:
+                type: string
+                example: "9"
+            X-RateLimit-Reset:
+              schema:
+                type: string
+                example: "1640995200"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBooksResponse'
+              examples:
+                books_list:
+                  value:
+                    data:
+                      - id: "507f1f77bcf86cd799439011"
+                        title: "Кобзар"
+                        author: "Тарас Шевченко"
+                        year: 1840
+                        isbn: "978-966-01-0001-1"
+                        description: "Збірка поезій Тараса Шевченка"
+                        created_at: "2023-01-01T12:00:00Z"
+                        updated_at: null
+                      - id: "507f1f77bcf86cd799439012"
+                        title: "Лісова пісня"
+                        author: "Леся Українка"
+                        year: 1911
+                        isbn: "978-966-01-0002-8"
+                        description: "Драма-феєрія Лесі Українки"
+                        created_at: "2023-01-01T13:00:00Z"
+                        updated_at: null
+                    total: 2
+                    skip: 0
+                    limit: 10
+
+    post:
+      tags:
+        - books
+      summary: Додати нові книги
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/BookInput'
+            examples:
+              add_books:
+                value:
+                  - title: "Кобзар"
+                    author: "Тарас Шевченко"
+                    year: 1840
+                    isbn: "978-966-01-0001-1"
+                    description: "Збірка поезій Тараса Шевченка"
+                  - title: "Лісова пісня"
+                    author: "Леся Українка"
+                    year: 1911
+                    isbn: "978-966-01-0002-8"
+                    description: "Драма-феєрія Лесі Українки"
+      responses:
+        '201':
+          description: Книги успішно додані
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookResponse'
+              examples:
+                created_books:
+                  value:
+                    - id: "507f1f77bcf86cd799439011"
+                      title: "Кобзар"
+                      author: "Тарас Шевченко"
+                      year: 1840
+                      isbn: "978-966-01-0001-1"
+                      description: "Збірка поезій Тараса Шевченка"
+                      created_at: "2023-01-01T12:00:00Z"
+                      updated_at: null
+
+  /books/{book_id}:
+    get:
+      tags:
+        - books
+      summary: Отримати книгу за ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          description: ID книги
+          schema:
+            type: string
+            example: "507f1f77bcf86cd799439011"
+      responses:
+        '200':
+          description: Книга знайдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookResponse'
+              examples:
+                found_book:
+                  value:
+                    id: "507f1f77bcf86cd799439011"
+                    title: "Кобзар"
+                    author: "Тарас Шевченко"
+                    year: 1840
+                    isbn: "978-966-01-0001-1"
+                    description: "Збірка поезій Тараса Шевченка"
+                    created_at: "2023-01-01T12:00:00Z"
+                    updated_at: null
+
+    put:
+      tags:
+        - books
+      summary: Оновити книгу за ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          description: ID книги
+          schema:
+            type: string
+            example: "507f1f77bcf86cd799439011"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookInput'
+            examples:
+              update_book:
+                value:
+                  title: "Кобзар (оновлена версія)"
+                  author: "Тарас Шевченко"
+                  year: 1840
+                  isbn: "978-966-01-0001-1"
+                  description: "Оновлена збірка поезій Тараса Шевченка"
+      responses:
+        '200':
+          description: Книга успішно оновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookResponse'
+
+    delete:
+      tags:
+        - books
+      summary: Видалити книгу за ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          description: ID книги
+          schema:
+            type: string
+            example: "507f1f77bcf86cd799439011"
+      responses:
+        '204':
+          description: Книга успішно видалена
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserCreate:
+      type: object
+      required:
+        - email
+        - username
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email користувача
+          example: "user@example.com"
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          description: Ім'я користувача
+          example: "testuser"
+        password:
+          type: string
+          minLength: 6
+          description: Пароль користувача
+          example: "password123"
+
+    UserLogin:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email користувача
+          example: "user@example.com"
+        password:
+          type: string
+          description: Пароль користувача
+          example: "password123"
+
+    UserResponse:
+      type: object
+      required:
+        - id
+        - email
+        - username
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Унікальний ідентифікатор користувача
+          example: "507f1f77bcf86cd799439011"
+        email:
+          type: string
+          format: email
+          description: Email користувача
+          example: "user@example.com"
+        username:
+          type: string
+          description: Ім'я користувача
+          example: "testuser"
+        created_at:
+          type: string
+          format: date-time
+          description: Дата створення
+          example: "2023-01-01T12:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Дата оновлення
+          example: null
+
+    Token:
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - token_type
+      properties:
+        access_token:
+          type: string
+          description: JWT токен доступу
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiZXhwIjoxNjQwOTk1MjAwfQ.example"
+        refresh_token:
+          type: string
+          description: JWT refresh токен
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiZXhwIjoxNjQwOTk1MjAwfQ.refresh"
+        token_type:
+          type: string
+          default: "bearer"
+          description: Тип токена
+          example: "bearer"
+
+    BookInput:
+      type: object
+      required:
+        - title
+        - author
+      properties:
+        title:
+          type: string
+          description: Назва книги
+          example: "Кобзар"
+        author:
+          type: string
+          description: Автор книги
+          example: "Тарас Шевченко"
+        year:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 2100
+          description: Рік видання
+          example: 1840
+        isbn:
+          type: string
+          nullable: true
+          description: ISBN код книги
+          example: "978-966-01-0001-1"
+        description:
+          type: string
+          nullable: true
+          description: Опис книги
+          example: "Збірка поезій Тараса Шевченка"
+
+    BookResponse:
+      allOf:
+        - $ref: '#/components/schemas/BookInput'
+        - type: object
+          required:
+            - id
+            - created_at
+          properties:
+            id:
+              type: string
+              description: Унікальний ідентифікатор книги
+              example: "507f1f77bcf86cd799439011"
+            created_at:
+              type: string
+              format: date-time
+              description: Дата створення запису
+              example: "2023-01-01T12:00:00Z"
+            updated_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: Дата останнього оновлення
+              example: null
+
+    PaginatedBooksResponse:
+      type: object
+      required:
+        - data
+        - total
+        - skip
+        - limit
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookResponse'
+        total:
+          type: integer
+          description: Загальна кількість книг
+          example: 2
+        skip:
+          type: integer
+          description: Кількість пропущених записів
+          example: 0
+        limit:
+          type: integer
+          description: Ліміт записів на сторінку
+          example: 10
+
+    HTTPValidationError:
+      type: object
+      properties:
+        detail:
+          oneOf:
+            - type: string
+              example: "Невірний email або пароль"
+            - type: array
+              items:
+                type: object
+                properties:
+                  loc:
+                    type: array
+                    items:
+                      type: string
+                  msg:
+                    type: string
+                  type:
+                    type: string
+
+    RateLimitError:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: "Перевищено ліміт запитів"
